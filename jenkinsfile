@@ -3,7 +3,8 @@ pipeline {
 
     parameters {
         string(name: 'environment', defaultValue: 'terraform', description: 'Workspace/environment file to use for deployment')
-
+        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
+        booleanParam(name: 'destroy', defaultValue: false, description: 'Destroy Terraform build?')
     }
 
 
@@ -16,35 +17,39 @@ pipeline {
     stages {
         stage('checkout') {
             steps {
-                 
+                 git branch: 'main', credentialsId: 'a47a2717-1259-48a3-8718-e09a3dfba79f', url: 'https://github.com/gayatripawar2001/Terraform.git'
                 }
             }
+     stage('init'){
+      steps{
+        sh "terraform init"
+  }
+}
 
         stage('Plan') {
-            steps {
-                sh 'terraform init -input=false'
-
-                sh "terraform plan -input=false -out tfplan "
-         
-            }
-        }        
-            
-
-           steps {
-               script {
-                    def plan = readFile 'tfplan.txt'
-                    input message: "Do you want to apply the plan?",
-                    parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
-               }
-           }
-       }
-
-        stage('Apply') {
-            when {
+         when {
                 not {
                     equals expected: true, actual: params.destroy
                 }
             }
+            steps {
+
+                sh "terraform plan"
+         
+            }
+        }
+        stage('Approval') {
+           when {
+               not {
+                   equals expected: true, actual: params.autoApprove
+               }
+               not {
+                    equals expected: true, actual: params.destroy
+                }
+           }
+       }
+
+        stage('Apply') {
             
             steps {
                 sh "terraform apply -input=false tfplan"
@@ -60,6 +65,5 @@ pipeline {
            sh "terraform destroy --auto-approve"
         }
     }
-d
   }
 }
